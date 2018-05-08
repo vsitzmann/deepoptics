@@ -1,0 +1,49 @@
+/*
+ * Style tweaks
+ * --------------------------------------------------
+ */
+html,
+body {
+  overflow-x: hidden;  /*Prevent scroll on narrow devices */
+  padding-top: 30px;
+}
+footer {
+  padding: 10px 0;
+}
+.authors {
+  font-size: 100px;
+}
+/*.container {
+  max-width: 768px;
+}*/
+.container {
+  max-width: 1100px;
+}
+p {
+  font-size: 18px;
+  /*padding-bottom: 20px;*/
+}
+
+li {
+  font-size: 16px;
+}
+
+.jumbotron h2 {
+  font-size: 48px;
+}
+
+.section { 
+  padding-top: 10px
+}
+
+.caption {
+  width:75%; 
+  font-size:14px
+}
+
+.bibtexsection {
+  font-family: "Courier",monospace;
+  font-size:12px;
+  white-space:pre;
+  background-color: #f4f4f4;
+}
