@@ -23,7 +23,49 @@
     <div class="container">
 
     <div class="jumbotron">
-      <h2>Coming soon!</h2>
+      <h2>End-to-end optimization of optics and image processing</h2>
+      <p class="abstract">Joint optimization of whole computer vision pipelines for true domain-specific imaging</p>
+      <p iclass="authors"><a href="http://stanford.edu/~sitzmann/">Vincent Sitzmann*</a>, <a href="http://stanford.edu/~stevend2/">Steven Diamond*</a>, <a href="https://www.cs.ubc.ca/~evanpeng/">Yifan Peng*</a>, <a href="">Xiong Dun</a>, <a href="http://web.stanford.edu/~boyd">Stephen Boyd</a>, <a href="">Wolfgang Heidrich</a>, <a href="">Felix Heide</a>, <a href="https://stanford.edu/~gordonwz/">Gordon Wetzstein</a></p>
+      <p><a class="btn btn-primary" href="https://github.com/vsitzmann/deepoptics">Code</a> <a class="btn btn-primary" href="https://drive.google.com/file/d/1Xums2qyqSGP_z_24HnYpM9gbRm1_uAzY/view?usp=sharing">Paper</a></p> 
+    </div>    
+
+    <img src="img/teaser.jpg" style="width:100%; margin-right:-20px; margin-top:-10px;">
+    <hr>
+
+    <div>
+        <p>In typical cameras the optical system is designed first; once it is fixed, the parameters in the image processing algorithm are tuned to get good image reproduction. In contrast to this sequential design approach, we consider joint optimization of an optical system (for example, the physical shape of the lens) together with the parameters of the reconstruction algorithm. We build a fully-differentiable simulation model that maps the true source image to the reconstructed one. The model includes diffractive light propagation, depth and wavelength-dependent effects, noise and nonlinearities, and the image post-processing. We jointly optimize the optical parameters and the image processing algorithm parameters so as to minimize the deviation between the true and reconstructed image, over a large set of images. We implement our joint optimization method using autodifferentiation to efficiently compute parameter gradients in a stochastic optimization algorithm. We demonstrate the efficacy of this approach by applying it to achromatic extended depth of field and snapshot super-resolution imaging.</p>
+    </div>
+
+    <div class="section">
+      <h3>Submission Video</h3>
+      <iframe width="1025" height="560" src="https://www.youtube.com/embed/iJdsxXOfqvw" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+    </div>
+    
+    <div class="section">
+      <h3>Related work</h3>
+      <hr>
+      <p>Check out our related work on differentiable image reconstruction:</p>
+      <p><a href="https://arxiv.org/abs/1705.08041">Unrolled optimization with Deep Priors</a></p>
+      <p><a href="https://arxiv.org/abs/1701.06487">Dirty Pixels: Optimizing Image Classification Architectures for Raw Sensor Data</a></p>
+    </div>
+
+
+
+    <!-- <div style="padding-top:30px"> -->
+    <div>
+    <h3>References</h3>
+    <hr>
+    <p>For full details, please refer to our paper.</p>
+    <div class="list-group">
+      <a href="https://drive.google.com/file/d/1Xums2qyqSGP_z_24HnYpM9gbRm1_uAzY/view?usp=sharing" class="list-group-item">
+        <img src="img/paper_thumbnails.png" style="width:100%; margin-right:-20px; margin-top:-10px;">
+        <h3 class="list-group-item-heading">End-to-end optimization of optics and image processing for achromatic extended depth of field and super-resolution imaging</h4>
+        <p class="list-group-item-text">Vincent Sitzmann*, Steven Diamond*, Yifan Peng*, Xiong Dun, Stephen Boyd, Wolfgang Heidrich, Felix Heide, Gordon Wetzstein</p>
+      </a>
+    </div>
+    <p>Send feedback and questions to <a href="http://web.stanford.edu/~sitzmann/">Vincent Sitzmann</a></p>
+    </div>
+
     </div><!--/.container-->
   </body>
 </html>
