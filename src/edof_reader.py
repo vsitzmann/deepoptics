@@ -38,18 +38,6 @@ def get_edof_training_data(target_dir,
 
     image_batch = img_dataset.make_one_shot_iterator().get_next()
 
-    # For every batch, we produce random depth values in a range of 0.5 to 6 meters
-    # From 0.5 to 6 meters
-    #min_val = np.log10(0.5)
-    #max_val = np.log10(6)
-    #tf.summary.scalar('min_distance', 10**min_val)
-    #tf.summary.scalar('max_distance', 10**max_val)
-
-    #if log_depth_sampling:
-    #    depth_bins = [tf.pow(10., tf.random_uniform(minval=min_val, maxval=max_val, shape=())) for i in range(num_depths)]
-    #else:
-    #    depth_bins = [tf.random_uniform(minval=0.5, maxval=6., shape=()) for i in range(num_depths)]
-
     all_depths = tf.convert_to_tensor([1/2, 1/1.5, 1/1, 1/0.5, 1000], tf.float32)
     depth_bins = []
     for i in range(num_depths):

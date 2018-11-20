@@ -10,7 +10,7 @@ import tensorflow as tf
 from glob import glob
 import nn_architectures
 
-import data_readers.edof_reader
+import edof_reader
 import cv2
 
 import layers.deconv as deconv
@@ -100,19 +100,19 @@ class RGBCollimator(model.Model):
         return loss
 
     def _get_training_queue(self, batch_size, num_threads=4):
-        image_batch, _, _ = data_readers.edof_reader.get_jpg_training_queue('./test_imgs/high_res_images',
-                                                                             patch_size=self.patch_size,
-                                                                             batch_size=batch_size,
-                                                                             color=True)
+        image_batch, _, _ = edof_reader.get_jpg_training_queue('./test_imgs/high_res_images',
+                                                               patch_size=self.patch_size,
+                                                               batch_size=batch_size,
+                                                               color=True)
         return image_batch, image_batch
 
     def _get_inference_queue(self, img_dir):
-        image_batch, _, _ = data_readers.edof_reader.get_jpg_training_queue(img_dir,
-                                                                            patch_size=self.patch_size,
-                                                                            batch_size=1,
-                                                                            color=True,
-                                                                            loop=False,
-                                                                            filetype='png')
+        image_batch, _, _ = edof_reader.get_jpg_training_queue(img_dir,
+                                                               patch_size=self.patch_size,
+                                                               batch_size=1,
+                                                               color=True,
+                                                               loop=False,
+                                                               filetype='png')
         return image_batch, image_batch
 
 
