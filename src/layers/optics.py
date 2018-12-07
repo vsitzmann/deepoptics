@@ -381,7 +381,7 @@ class Propagation():
         _, N_orig, _, _ = input_field.shape.as_list()
 
         # zero padding.
-        Npad = N_orig//2
+        Npad = N_orig//4 # We would like to pad more, but doesn't fit on GPU
 
         padded_input_field = tf.pad(input_field,
                                     [[0,0],[Npad,Npad],[Npad,Npad],[0,0]])
@@ -399,12 +399,12 @@ class FresnelPropagation(Propagation):
                  sampling_interval,
                  propagation_distance):
         N_orig,_ = wave_resolution
-        N = 2 * N_orig
+        N = int(1.5 * N_orig)
 
         kernel_shape = (1, N, N, len(wave_lengths))
 
         [x,y] = np.mgrid[-N//2:N//2,
-                -N//2:N//2]
+                         -N//2:N//2]
 
         # Spatial frequency
         fx = x / (sampling_interval*N) # max frequency = 1/(2*pixel_size)
@@ -693,7 +693,6 @@ def fourier_element(input_field,
         padding_width = (height - size) // 2
         fourier_coeffs_padded = tf.pad(fourier_coeffs,
                                        [[0, 0], [padding_width, padding_width], [padding_width, padding_width], [0, 0]])
-        print(fourier_coeffs_padded.shape.as_list())
         height_map = tf.real(transp_ifft2d(ifftshift2d_tf(fourier_coeffs_padded)))
 
         if height_map_regularizer is not None:
