@@ -1,4 +1,4 @@
-'''Optimizes a simple diffractive focusing lens.
+'''Optimizes a simple diffractive focusing lens. See paper section 3.2, last paragraph.
 '''
 
 import argparse
@@ -65,7 +65,7 @@ class RGBCollimator(model.Model):
             # Propagate field from aperture to sensor
             field = optics.propagate_fresnel(field,
                                              distance=self.sensor_distance,
-                                             input_sample_interval=self.sample_interval,
+                                             sampling_interval=self.sample_interval,
                                              wave_lengths=self.wave_lengths)
 
             # The psf is the intensities of the propagated field.
@@ -93,7 +93,7 @@ class RGBCollimator(model.Model):
         loss = tf.reduce_mean(tf.square(model_output - ground_truth))
         return loss
 
-    def _get_training_queue(self, batch_size, num_threads=4):
+    def _get_training_queue(self, batch_size):
         image_batch, _, _ = edof_reader.get_edof_training_data(opt.img_dir,
                                                                patch_size=self.patch_size,
                                                                batch_size=batch_size)
