@@ -1,5 +1,13 @@
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+'''Optimizes a diffractive extended-depth-of-field lens. See paper section 4.
+'''
+
+import argparse
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--img_dir', type=str, required=True, help='Path to the training images.')
+parser.add_argument('--log_dir', type=str, required=True, help='Directory that checkpoints and tensorboard logfiles will'
+                                                               'be written to.')
+opt = parser.parse_args()
 
 import model
 import layers.optics as optics
@@ -9,41 +17,26 @@ import edof_reader
 import numpy as np
 import tensorflow as tf
 
-from glob import glob
-
 class ExtendedDepthOfFieldModel(model.Model):
     def __init__(self,
-                 aperture_diameter,
                  distance,
                  refractive_idcs,
                  wave_lengths,
+                 sampling_interval,
+                 wave_resolution,
                  patch_size,
                  ckpt_path):
-
-        spot_half_angle = np.arctan2(aperture_diameter/2, distance)
-        spot_half_angle_sin = np.sin(spot_half_angle)
-
-        aperture_diffraction_limit = np.amax(wave_lengths / (2 * refractive_idcs * spot_half_angle_sin))
-        optical_feature_size = np.amin(wave_lengths / (2*spot_half_angle_sin))
-
-        optical_feature_size = 2e-6
-        wave_resolution = 2496,2496
-
-        print("\n" + 50*"*")
-        print("Wave resolution is %d. Wave lengths are %s. Diffraction limit is %.2e. Optical feature size is %.2e"%\
-                (wave_resolution[0], wave_lengths, aperture_diffraction_limit, optical_feature_size))
-        print(50*"*"+"\n")
 
         self.wave_resolution = wave_resolution
         self.wave_lengths = wave_lengths
         self.distance = distance
-        self.input_sample_interval = optical_feature_size
+        self.sampling_interval = sampling_interval
         self.patch_size = patch_size
         self.refractive_idcs = refractive_idcs
 
         super(ExtendedDepthOfFieldModel, self).__init__(name='ExtendedDepthOfField', ckpt_path=ckpt_path)
 
-    def _build_graph(self, x_train, global_step, hm_reg_scale, init_gamma, height_map_noise, learned_target_depth, hm_init_type='random_normal'):
+    def _build_graph(self, x_train, global_step, hm_reg_scale, init_gamma, height_map_noise):
         input_img, depth_map = x_train
 
         with tf.device('/device:GPU:0'):
@@ -62,18 +55,18 @@ class ExtendedDepthOfFieldModel(model.Model):
                 tf.summary.scalar('target_depth', target_depth)
 
                 optical_system = optics.SingleLensSetup(height_map=height_map,
-                                                 wave_resolution=self.wave_resolution,
-                                                 wave_lengths=self.wave_lengths,
-                                                 sensor_distance=self.distance,
-                                                 sensor_resolution=(self.patch_size, self.patch_size),
-                                                 input_sample_interval=self.input_sample_interval,
-                                                 refractive_idcs=self.refractive_idcs,
-                                                 height_tolerance=height_map_noise,
-                                                 use_planar_incidence=False,
-                                                 depth_bins=self.depth_bins,
-                                                 upsample=False,
-                                                 psf_resolution=self.wave_resolution,
-                                                 target_distance=target_depth)
+                                                        wave_resolution=self.wave_resolution,
+                                                        wave_lengths=self.wave_lengths,
+                                                        sensor_distance=self.distance,
+                                                        sensor_resolution=(self.patch_size, self.patch_size),
+                                                        input_sample_interval=self.sampling_interval,
+                                                        refractive_idcs=self.refractive_idcs,
+                                                        height_tolerance=height_map_noise,
+                                                        use_planar_incidence=False,
+                                                        depth_bins=self.depth_bins,
+                                                        upsample=False,
+                                                        psf_resolution=self.wave_resolution,
+                                                        target_distance=target_depth)
 
                 noise_sigma = tf.random_uniform(minval=0.001, maxval=0.02, shape=[])
                 sensor_img = optical_system.get_sensor_img(input_img=input_img,
@@ -100,10 +93,9 @@ class ExtendedDepthOfFieldModel(model.Model):
         return loss
 
     def _get_training_queue(self, batch_size):
-        image_batch, depth_batch, self.depth_bins = edof_reader.get_edof_training_data('./test_imgs/high_res_images/',
+        image_batch, depth_batch, self.depth_bins = edof_reader.get_edof_training_data(opt.img_dir,
                                                                                        patch_size=self.patch_size,
                                                                                        batch_size=batch_size,
-                                                                                       log_depth_sampling=True,
                                                                                        num_depths=3)
         return (image_batch, depth_batch), image_batch
 
@@ -111,29 +103,31 @@ class ExtendedDepthOfFieldModel(model.Model):
 if __name__=='__main__':
     tf.reset_default_graph()
 
-    aperture_diameter = 5e-3
-    distance = 35.5e-3
+    sensor_distance = 35.5e-3
     refractive_idcs = np.array([1.4648, 1.4599, 1.4568])
     wave_lenghts = np.array([460, 550, 640]) * 1e-9
     ckpt_path = None
     num_steps = 20001
     patch_size = 1248
+    sampling_interval = 2e-6
+    wave_resolution = 2496,2496
 
-    eof_model = ExtendedDepthOfFieldModel(aperture_diameter,
-                                                distance,
-                                                refractive_idcs,
-                                                wave_lenghts,
-                                                patch_size,
-                                                ckpt_path)
+    eof_model = ExtendedDepthOfFieldModel(sensor_distance,
+                                          refractive_idcs=refractive_idcs,
+                                          wave_lengths=wave_lenghts,
+                                          patch_size=patch_size,
+                                          sampling_interval=sampling_interval,
+                                          wave_resolution=wave_resolution,
+                                          ckpt_path=ckpt_path)
 
-    eof_model.fit(model_params = {'hm_reg_scale':0., 'init_gamma':1.5, 'learned_target_depth':True, 'height_map_noise':20e-9},
+    eof_model.fit(model_params = {'hm_reg_scale':0., 'init_gamma':1.5, 'height_map_noise':20e-9},
                         opt_type = 'sgd_with_momentum',
                         opt_params = {'momentum':0.5, 'use_nesterov':True},
                         decay_type = 'polynomial',
                         decay_params = {'decay_steps':num_steps, 'end_learning_rate':1e-10},
                         batch_size=1,
-                        starter_learning_rate = 'gamma':5e-1,
+                        starter_learning_rate = 5e-1,
                         num_steps_until_save=500,
                         num_steps_until_summary=200,
-                        logdir = '/media/data/checkpoints/deepoptics/reproduction/aedof_diffractive',
+                        logdir = opt.log_dir,
                         num_steps = num_steps)
