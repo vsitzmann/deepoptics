@@ -37,7 +37,7 @@ Each one of the scripts aedof_diffractive.py, focussing_diffractive.py and aedof
 from the paper. They take as command-line parameters the log directory, which all log files and checkpoints will be written to,
 and the image directory, which should contain high-resolution jpg images (see "Dataset" above). Example call:
 ```
-python focussing_diffractive.py --log_dir /path/to/logdir --img_dir /path/to/image/dir
+python focusing_diffractive.py --log_dir /path/to/logdir --img_dir /path/to/image/dir
 ```
 Training progress can be inspected via tensorboard:
 ```
