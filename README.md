@@ -28,7 +28,7 @@ We used the high-resolution images from Jegou et al. (2008) for optimizing the p
 
 ## Usage
 This code was written for python 3.6.3 and Tensorflow 1.4.0. 
-I recommend to use conda for dependency management. You can create an environment with name "deepoptics" with all dependencies like so:
+I recommend to use [anaconda](https://www.anaconda.com/download/) for dependency management. You can create an environment with name "deepoptics" with all dependencies like so:
 ```
 conda env create -f src/environment.yml
 ```
