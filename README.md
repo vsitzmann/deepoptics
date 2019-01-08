@@ -7,7 +7,7 @@ This repository contains the code to reproduce the results presented in the foll
 
 *Sitzmann, Vincent, et al. "End-to-end Optimization of Optics and Image Processing for Achromatic Extended Depth of Field and Super-resolution Imaging" SIGGRAPH 2018.
 
-If you use this code or dataset in you research, please cite our paper with the following Bibtex code:
+If you use this code or dataset in you research, please consider citing our paper with the following Bibtex code:
 
 ```
 @article{sitzmann2018end,
@@ -27,7 +27,7 @@ A pre-print is available at this [link](https://dl.acm.org/citation.cfm?id=32013
 We used the high-resolution images from Jegou et al. (2008) for optimizing the phase masks presented in the paper, though any other set of high-resolution images should work. The images are available for download [here](http://lear.inrialpes.fr/~jegou/data.php).
 
 ## Usage
-This code was written for python 3.6.7 and Tensorflow 1.12.0. 
+This code was written for python 3.6.3 and Tensorflow 1.4.0. 
 I recommend to use conda for dependency management. You can create an environment with name "deepoptics" with all dependencies like so:
 ```
 conda env create -f src/environment.yml
@@ -47,4 +47,3 @@ tensorboard --logdir=/path/to/logdir
 ## Abstract
 In typical cameras the optical system is designed first; once it is fixed, the parameters in the image processing algorithm are tuned to get good image reproduction. In contrast to this sequential design approach, we consider joint optimization of an optical system (for example, the physical shape of the lens) together with the parameters of the reconstruction algorithm. We build a fully-differentiable simulation model that maps the true source image to the reconstructed one. The model includes diffractive light propagation, depth and wavelength-dependent effects, noise and nonlinearities, and the image post-processing. We jointly optimize the optical parameters and the image processing algorithm parameters so as to minimize the deviation between the true and reconstructed image, over a large set of images. We implement our joint optimization method using autodifferentiation to efficiently compute parameter gradients in a stochastic optimization algorithm. We demonstrate the efficacy of this approach by applying it to achromatic extended depth of field and snapshot super-resolution imaging.
 
-## This repository is still work-in-progress - I'll push more updates in the days to come!

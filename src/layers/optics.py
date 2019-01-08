@@ -1,14 +1,20 @@
+import abc
+
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
 
 from numpy.fft import ifftshift
 import fractions
-
+import poppy
 
 ##############################
 # Helper functions
 ##############################
+
+def get_zernike_volume(resolution, n_terms, scale_factor=1e-6):
+    zernike_volume = poppy.zernike.zernike_basis(nterms=n_terms, npix=resolution, outside=0.0)
+    return zernike_volume * scale_factor
+
 def fspecial(shape=(3, 3), sigma=0.5):
     """
     2D gaussian mask - should give the same result as MATLAB's
@@ -22,6 +28,17 @@ def fspecial(shape=(3, 3), sigma=0.5):
     if sumh != 0:
         h /= sumh
     return h
+
+
+def zoom(image_batch, zoom_fraction):
+    """Get central crop of batch
+    """
+    images = tf.unstack(image_batch, axis=0)
+    crops = []
+    for image in images:
+        crop = tf.image.central_crop(image, zoom_fraction)
+        crops.append(crop)
+    return tf.stack(crops, axis=0)
 
 
 def transp_fft2d(a_tensor, dtype=tf.complex64):
@@ -83,20 +100,6 @@ def laplace_l1_regularizer(scale):
     return laplace_l1
 
 
-def binary_regularizer(scale):
-    if scale == 0.:
-        print("Scale of zero disables the regularizer.")
-
-    def binary_reg(a_tensor):
-        with tf.name_scope('binary_regularizer'):
-            local_losses = tf.square(tf.square(a_tensor) - a_tensor)
-            local_losses = tf.cast(local_losses, tf.float32)
-            attach_summaries("Local_binary_reg_losses", local_losses, image=True, log_image=True)
-            return scale * tf.reduce_mean(local_losses)
-
-    return binary_reg
-
-
 def laplace_l2_regularizer(scale):
     if np.allclose(scale, 0.):
         print("Scale of zero disables the laplace_l1_regularizer.")
@@ -126,46 +129,27 @@ def phaseshifts_from_height_map(height_map, wave_lengths, refractive_idcs):
     return phase_shifts
 
 
-def get_one_phase_shift_thickness(wave_length, refractive_index):
-    '''Calculate the thickness (in meter) of the material necessary to shift incoming light by 2pi.
-
-    :param wave_length: The wave length of the light
-    :param refractive_index: The refractive index of the material
-    :return: Thickness in meter.
-    '''
+def get_one_phase_shift_thickness(wave_lengths, refractive_index):
+    """Calculate the thickness (in meter) of a phaseshift of 2pi.
+    """
     # refractive index difference
     delta_N = refractive_index - 1.
-
     # wave number
-    wave_nos = 2. * np.pi / wave_length
+    wave_nos = 2. * np.pi / wave_lengths
 
     two_pi_thickness = (2. * np.pi) / (wave_nos * delta_N)
     return two_pi_thickness
 
 
 def attach_summaries(name, var, image=False, log_image=False):
-    '''Attaches summaries to var.
-
-    :param name: Name of the variable in tensorboard.
-    :param var: Variable to attach summary to.
-    :param image: Whether an image summary should be created for var.
-    :param log_image: Whether a log image summary should be created for var.
-    :return:
-    '''
-
-    tf.summary.scalar(name + '_mean', tf.reduce_mean(var))
-    tf.summary.scalar(name + '_min', tf.reduce_min(var))
-    tf.summary.histogram(name + '_max', tf.reduce_max(var))
-
     if image:
         tf.summary.image(name, var, max_outputs=3)
     if log_image and image:
         tf.summary.image(name + '_log', tf.log(var + 1e-12), max_outputs=3)
-
-        var_min = tf.reduce_min(var, axis=(1, 2), keepdims=True)
-        var_max = tf.reduce_max(var, axis=(1, 2), keepdims=True)
-        var_norm = (var - var_min) / (var_max - var_min)
-        tf.summary.image(name + '_norm', var_norm, max_outputs=3)
+    tf.summary.scalar(name + '_mean', tf.reduce_mean(var))
+    tf.summary.scalar(name + '_max', tf.reduce_max(var))
+    tf.summary.scalar(name + '_min', tf.reduce_min(var))
+    tf.summary.histogram(name + '_histogram', var)
 
 
 def fftshift2d_tf(a_tensor):
@@ -192,8 +176,12 @@ def ifftshift2d_tf(a_tensor):
 
 
 def psf2otf(input_filter, output_size):
-    """Convert 4D tensorflow filter into its FFT.
-    """
+    '''Convert 4D tensorflow filter into its FFT.
+
+    :param input_filter: PSF. Shape (height, width, num_color_channels, num_color_channels)
+    :param output_size: Size of the output OTF.
+    :return: The otf.
+    '''
     # pad out to output_size with zeros
     # circularly shift so center pixel is at 0,0
     fh, fw, _, _ = input_filter.shape.as_list()
@@ -228,31 +216,32 @@ def next_power_of_two(number):
     return closest_pow
 
 
-def img_psf_conv(img, psf, otf=None, adjoint=False):
-    '''Convolves an input image with the point spread function, in the fourier domain.
+def img_psf_conv(img, psf, otf=None, adjoint=False, circular=False):
+    '''Performs a convolution of an image and a psf in frequency space.
 
-    :param img: Graph node for input image. Shape (batch_size, height, width, num_channels)
-    :param psf: Graph node for psfs. Shape (height, width, batch_size, num_channels)
-    :param otf: If available, can pass in otf instead
-    :param adjoint: If adjoint convolution should be performed.
-    :param circular: If circular convolution should be performed.
-    :return: graph node for the result of the convolution.
+    :param img: Image tensor.
+    :param psf: PSF tensor.
+    :param otf: If OTF is already computed, the otf.
+    :param adjoint: Whether to perform an adjoint convolution or not.
+    :param circular: Whether to perform a circular convolution or not.
+    :return: Image convolved with PSF.
     '''
     img = tf.convert_to_tensor(img, dtype=tf.float32)
     psf = tf.convert_to_tensor(psf, dtype=tf.float32)
 
     img_shape = img.shape.as_list()
 
-    target_side_length = 2 * img_shape[1]
+    if not circular:
+        target_side_length = 2 * img_shape[1]
 
-    height_pad = (target_side_length - img_shape[1]) / 2
-    width_pad = (target_side_length - img_shape[1]) / 2
+        height_pad = (target_side_length - img_shape[1]) / 2
+        width_pad = (target_side_length - img_shape[1]) / 2
 
-    pad_top, pad_bottom = int(np.ceil(height_pad)), int(np.floor(height_pad))
-    pad_left, pad_right = int(np.ceil(width_pad)), int(np.floor(width_pad))
+        pad_top, pad_bottom = int(np.ceil(height_pad)), int(np.floor(height_pad))
+        pad_left, pad_right = int(np.ceil(width_pad)), int(np.floor(width_pad))
 
-    img = tf.pad(img, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]], "CONSTANT")
-    img_shape = img.shape.as_list()
+        img = tf.pad(img, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]], "CONSTANT")
+        img_shape = img.shape.as_list()
 
     img_fft = transp_fft2d(img)
 
@@ -270,19 +259,20 @@ def img_psf_conv(img, psf, otf=None, adjoint=False):
 
     result = tf.cast(tf.real(result), tf.float32)
 
-    result = result[:, pad_top:-pad_bottom, pad_left:-pad_right, :]
+    if not circular:
+        result = result[:, pad_top:-pad_bottom, pad_left:-pad_right, :]
 
     return result
 
 
 def depth_dep_convolution(img, psfs, disc_depth_map):
-    """Performs a depth-dependent convolution of an image (with depth map disc_depth_map) and a psf.
+    """Convolves an image with different psfs at different depths as determined by a discretized depth map.
 
     Args:
         img: image with shape (batch_size, height, width, num_img_channels)
         psfs: filters with shape (kernel_height, kernel_width, num_img_channels, num_filters)
-        disc_depth_map: The discretized depth map.
-        use_fft: Use img_fft_conv or normal conv2d
+        disc_depth_map: Discretized depth map.
+        use_fft: Use img_psf_conv or normal conv2d
     """
     # TODO: only convolve with PSFS that are necessary.
     img = tf.cast(img, dtype=tf.float32)
@@ -372,79 +362,83 @@ def get_intensities(input_field):
 # Optical elements & Propagation
 ##################################
 
-class Propagation():
+class Propagation(abc.ABC):
     def __init__(self,
-                 prop_kernel):
-        self.prop_kernel = prop_kernel
+                 input_shape,
+                 distance,
+                 discretization_size,
+                 wave_lengths):
+        self.input_shape = input_shape
+        self.distance = distance
+        self.wave_lengths = wave_lengths
+        self.wave_nos = 2. * np.pi / wave_lengths
+        self.discretization_size = discretization_size
+
+    @abc.abstractmethod
+    def _propagate(self, input_field):
+        """Propagate an input field through the medium
+        """
 
     def __call__(self, input_field):
-        _, N_orig, _, _ = input_field.shape.as_list()
-
-        # zero padding.
-        Npad = N_orig//4 # We would like to pad more, but doesn't fit on GPU
-
-        padded_input_field = tf.pad(input_field,
-                                    [[0,0],[Npad,Npad],[Npad,Npad],[0,0]])
-
-        objFT = transp_fft2d( padded_input_field )
-        out_field = transp_ifft2d(objFT * self.prop_kernel)
-
-        return out_field[:,Npad:-Npad,Npad:-Npad,:]
+        return self._propagate(input_field)
 
 
 class FresnelPropagation(Propagation):
-    def __init__(self,
-                 wave_resolution,
-                 wave_lengths,
-                 sampling_interval,
-                 propagation_distance):
-        N_orig,_ = wave_resolution
-        N = int(1.5 * N_orig)
+    def _propagate(self, input_field):
+        _, M_orig, N_orig, _ = self.input_shape
+        # zero padding.
+        Mpad = M_orig // 4
+        Npad = N_orig // 4
+        M = M_orig + 2 * Mpad
+        N = N_orig + 2 * Npad
+        padded_input_field = tf.pad(input_field,
+                                    [[0, 0], [Mpad, Mpad], [Npad, Npad], [0, 0]])
 
-        kernel_shape = (1, N, N, len(wave_lengths))
-
-        [x,y] = np.mgrid[-N//2:N//2,
-                         -N//2:N//2]
+        [x, y] = np.mgrid[-N // 2:N // 2,
+                 -M // 2:M // 2]
 
         # Spatial frequency
-        fx = x / (sampling_interval*N) # max frequency = 1/(2*pixel_size)
-        fy = y / (sampling_interval*N)
+        fx = x / (self.discretization_size * N)  # max frequency = 1/(2*pixel_size)
+        fy = y / (self.discretization_size * M)
 
         # We need to ifftshift fx and fy here, because ifftshift doesn't exist in TF.
         fx = ifftshift(fx)
         fy = ifftshift(fy)
 
-        fx = fx[None,:,:,None]
-        fy = fy[None,:,:,None]
+        fx = fx[None, :, :, None]
+        fy = fy[None, :, :, None]
 
         squared_sum = np.square(fx) + np.square(fy)
-        wls = wave_lengths[None,None,None,:]
 
         # We create a non-trainable variable so that this computation can be reused
         # from call to call.
-        if tf.contrib.framework.is_tensor(propagation_distance):
-            tmp = np.float64(wls*np.pi*-1.*squared_sum)
+        if tf.contrib.framework.is_tensor(self.distance):
+            tmp = np.float64(self.wave_lengths * np.pi * -1. * squared_sum)
             constant_exp_part_init = tf.constant_initializer(tmp)
             constant_exponent_part = tf.get_variable("Fresnel_kernel_constant_exponent_part",
                                                      initializer=constant_exp_part_init,
-                                                     shape=kernel_shape,
+                                                     shape=padded_input_field.shape,
                                                      dtype=tf.float64,
                                                      trainable=False)
 
-            H = compl_exp_tf( propagation_distance * constant_exponent_part, dtype=tf.complex64,
-                              name='fresnel_kernel')
-        else: # Save some memory
-            tmp = np.float64(wls*np.pi*-1.*squared_sum * propagation_distance)
+            H = compl_exp_tf(self.distance * constant_exponent_part, dtype=tf.complex64,
+                             name='fresnel_kernel')
+        else:  # Save some memory
+            tmp = np.float64(self.wave_lengths * np.pi * -1. * squared_sum * self.distance)
             constant_exp_part_init = tf.constant_initializer(tmp)
             constant_exponent_part = tf.get_variable("Fresnel_kernel_constant_exponent_part",
                                                      initializer=constant_exp_part_init,
-                                                     shape=kernel_shape,
+                                                     shape=padded_input_field.shape,
                                                      dtype=tf.float64,
                                                      trainable=False)
 
-            H = compl_exp_tf( constant_exponent_part, dtype=tf.complex64,
-                              name='fresnel_kernel')
-        super().__init__(prop_kernel=H)
+            H = compl_exp_tf(constant_exponent_part, dtype=tf.complex64,
+                             name='fresnel_kernel')
+
+        objFT = transp_fft2d(padded_input_field)
+        out_field = transp_ifft2d(objFT * H)
+
+        return out_field[:, Mpad:-Mpad, Npad:-Npad, :]
 
 
 class PhasePlate():
@@ -486,8 +480,8 @@ def propagate_exact(input_field,
                     wave_lengths):
     _, M_orig, N_orig, _ = input_field.shape.as_list()
     # zero padding.
-    Mpad = M_orig // 2
-    Npad = N_orig // 2
+    Mpad = M_orig // 4
+    Npad = N_orig // 4
     M = M_orig + 2 * Mpad
     N = N_orig + 2 * Npad
     padded_input_field = tf.pad(input_field,
@@ -506,8 +500,6 @@ def propagate_exact(input_field,
 
     fx = fx[None, :, :, None]
     fy = fy[None, :, :, None]
-
-    squared_sum = np.square(fx) + np.square(fy)
 
     # We create a non-trainable variable so that this computation can be reused
     # from call to call.
@@ -546,10 +538,10 @@ def propagate_fresnel(input_field,
                       distance,
                       sampling_interval,
                       wave_lengths):
-    wave_resolution = input_field.shape.as_list()[1:3]
-    propagation = FresnelPropagation(wave_resolution=wave_resolution,
-                                     propagation_distance=distance,
-                                     sampling_interval=sampling_interval,
+    input_shape = input_field.shape.as_list()
+    propagation = FresnelPropagation(input_shape,
+                                     distance=distance,
+                                     discretization_size=sampling_interval,
                                      wave_lengths=wave_lengths)
     return propagation(input_field)
 
@@ -575,19 +567,6 @@ def height_map_element(input_field,
                        height_map_regularizer=None,
                        height_tolerance=None,  # Default height tolerance is 2 nm.
                        ):
-    '''Performs pointwise phaseshifts on input field according to a
-    learnable height-map parmeterization of a phaseplate.
-
-    :param input_field: Tensorflow node of input wavefront.
-    :param name: Name of this operation.
-    :param wave_lengths: Wave lengths to be simulated.
-    :param refractive_idcs: Refractive idcs of material at wave_lengths
-    :param block_size: Whether each pixel is trainable (block_size=1) or each nxn block has identical thickness (block_size=n)
-    :param height_map_initializer: initializer for the height map. If none, initialize at constant thickness of 1e-4 m.
-    :param height_map_regularizer: Regularizer for height map.
-    :param height_tolerance: Manufacturing tolerance - uniform noise in this range will be added to increase robustness.
-    :return: phase-shifted input field.
-    '''
     _, height, width, _ = input_field.shape.as_list()
     height_map_shape = [1, height // block_size, width // block_size, 1]
 
@@ -619,52 +598,6 @@ def height_map_element(input_field,
     return element(input_field)
 
 
-def plano_convex_lens(input_field,
-                      focal_length,
-                      wave_lengths,
-                      discretization_step,
-                      refractive_idcs):
-    input_shape = input_field.shape.as_list()
-    _, N, M, _ = input_shape
-
-    convex_radius = (refractive_idcs.reshape([1, 1, 1, -1]) - 1.) * focal_length
-    [x, y] = np.mgrid[-N // 2:N // 2,
-             -M // 2:M // 2].astype(np.float64)
-
-    x = x * discretization_step
-    y = y * discretization_step
-    x = x.reshape([1, N, M, 1])
-    y = y.reshape([1, N, M, 1])
-
-    # This approximates the spherical surface with qaudratic-phase surfaces.
-    height_map = - (x ** 2 + y ** 2) / 2. * (1. / convex_radius)
-
-    element = PhasePlate(wave_lengths=wave_lengths,
-                         height_map=height_map,
-                         refractive_idcs=refractive_idcs)
-
-    return element(input_field)
-
-
-def cubic_phase_shifts(input_field):
-    input_shape = input_field.shape.as_list()
-    _, N, M, _ = input_shape
-
-    [x, y] = np.mgrid[-N // 2:N // 2,
-             -M // 2:M // 2].astype(np.float64)
-
-    x = x / np.array(N // 2, dtype=np.float64)
-    y = y / np.array(M // 2, dtype=np.float64)
-
-    phase_shifts = np.mod(20. * np.pi * (x ** 3 + y ** 3), 2. * np.pi)
-    phase_shifts = phase_shifts[None, :, :, None]
-
-    phase_shifts = compl_exp_tf(phase_shifts, dtype=tf.complex128)
-    input_field = tf.cast(input_field, tf.complex128)
-
-    return input_field * phase_shifts
-
-
 def fourier_element(input_field,
                     name,
                     wave_lengths,
@@ -674,6 +607,8 @@ def fourier_element(input_field,
                     height_tolerance=None,  # Default height tolerance is 2 nm.
                     ):
     _, height, width, _ = input_field.shape.as_list()
+    height_map_shape = [1, height, width, 1]
+
     fourier_initializer = tf.zeros_initializer()
 
     with tf.variable_scope(name, reuse=False):
@@ -689,10 +624,10 @@ def fourier_element(input_field,
                                             initializer=fourier_initializer)
         fourier_coeffs = tf.complex(fourier_vars_real, fourier_vars_cplx)
         attach_summaries("Fourier_coeffs", tf.abs(fourier_coeffs), image=True, log_image=False)
-        size = int(height * frequency_range)
-        padding_width = (height - size) // 2
+        padding_width = int((1 - frequency_range) * height) // 2
         fourier_coeffs_padded = tf.pad(fourier_coeffs,
                                        [[0, 0], [padding_width, padding_width], [padding_width, padding_width], [0, 0]])
+        print(fourier_coeffs_padded.shape.as_list())
         height_map = tf.real(transp_ifft2d(ifftshift2d_tf(fourier_coeffs_padded)))
 
         if height_map_regularizer is not None:
@@ -719,6 +654,7 @@ def zernike_element(input_field,
                     zernike_scale=1e5,
                     ):
     _, height, width, _ = input_field.shape.as_list()
+    height_map_shape = [1, height, width, 1]
 
     num_zernike_coeffs = zernike_volume.shape.as_list()[0]
 
@@ -731,9 +667,9 @@ def zernike_element(input_field,
                                          dtype=tf.float32,
                                          trainable=True,
                                          initializer=zernike_initializer)
-        # mask = np.ones([num_zernike_coeffs, 1, 1])
-        # mask[0] = 0.
-        # zernike_coeffs *= mask/zernike_scale
+        mask = np.ones([num_zernike_coeffs, 1, 1])
+        mask[0] = 0.
+        zernike_coeffs *= mask / zernike_scale
 
         for i in range(num_zernike_coeffs):
             tf.summary.scalar('zernike_coeff_%d' % i, tf.squeeze(zernike_coeffs[i, :, :]))
@@ -763,24 +699,19 @@ def gaussian_noise(image, stddev=0.001):
 
 def get_vanilla_height_map(side_length,
                            height_map_regularizer=None,
-                           height_map_initializer=None,
                            name='height_map'):
     height_map_shape = [1, side_length, side_length, 1]
 
-    if height_map_initializer is None:
-        init_height_map_value = np.ones(shape=height_map_shape, dtype=np.float64) * 1e-4
-        height_map_initializer = tf.constant_initializer(init_height_map_value)
-        print("Using default in initializer")
-    else:
-        print("Using passed in initializer")
+    init_height_map_value = np.ones(shape=height_map_shape, dtype=np.float64) * 1e-4
+    height_map_initializer = tf.constant_initializer(init_height_map_value)
 
     with tf.variable_scope(name, reuse=False):
-        height_map = tf.get_variable(name="height_map",
-                                     shape=height_map_shape,
-                                     dtype=tf.float64,
-                                     trainable=True,
-                                     initializer=height_map_initializer)
-        # height_map = tf.square(height_map_sqrt, name='height_map')
+        height_map_sqrt = tf.get_variable(name="height_map_sqrt",
+                                          shape=height_map_shape,
+                                          dtype=tf.float64,
+                                          trainable=True,
+                                          initializer=height_map_initializer)
+        height_map = tf.square(height_map_sqrt, name='height_map')
 
         if height_map_regularizer is not None:
             tf.contrib.layers.apply_regularization(height_map_regularizer, weights_list=[height_map])
@@ -920,7 +851,7 @@ class SingleLensSetup():
                 if not self.upsample:
                     psf = area_downsampling_tf(psf, self.psf_resolution[0])
 
-                psf = tf.div(psf, tf.reduce_sum(psf, axis=[1, 2], keepdims=True), name='psf_depth_idx_%d' % depth_idx)
+                psf = tf.div(psf, tf.reduce_sum(psf, axis=[1, 2], keep_dims=True), name='psf_depth_idx_%d' % depth_idx)
 
                 attach_summaries('PSF_depth_idx_%d' % depth_idx, psf, image=True, log_image=True)
                 psfs.append(tf.transpose(psf, [1, 2, 0, 3]))  # (Height, width, 1, channels)
@@ -928,7 +859,7 @@ class SingleLensSetup():
 
         if self.target_distance is not None:
             self.target_psf = psfs.pop()
-            attach_summaries('target_psf', tf.transpose(self.target_psf, [2, 0, 1, 3]), image=True, log_image=True)
+            attach_summaries('target_psf', tf.transpose(self.target_psf, [2, 0, 1, 3]), image=True)
 
         self.psfs = psfs
 
@@ -976,47 +907,59 @@ class ZernikeSystem():
                  input_sample_interval,
                  refractive_idcs,
                  height_tolerance,
-                 noise_model=gaussian_noise,
-                 psf_resolution=None,
                  target_distance=None,
-                 use_planar_incidence=True,
                  upsample=True,
-                 depth_bins=None,
-                 zernike_scale=1e8):
+                 depth_bins=None):
+        '''Simulates a one-lens system with a zernike-parameterized lens.
+
+        :param zernike_volume: Zernike basis functions.
+                               Tensor of shape (num_basis_functions, wave_resolution[0], wave_resolution[1]).
+        :param wave_resolution: Resolution of the simulated wavefront. Shape wave_resolution.
+        :param wave_lengths: Wavelengths to be simulated. Shape (num_wavelengths).
+        :param sensor_distance: Distance of sensor to optical element.
+        :param sensor_resolution: Resolution of simulated sensor.
+        :param input_sample_interval: Sampling interval of aperture. Scalar.
+        :param refractive_idcs: Refractive idcs of simulated material at wave_lengths.
+        :param height_tolerance: Manufacturing tolerance of element. Adds the respective level of noise to be robust to
+                                 manufacturing imperfections.
+        :param target_distance: Allows to define the depth of a PSF that will *always* be evaluated. That can then be
+                                used for instance for EDOF deconvolution.
+        :param upsample: Whether the image should be upsampled to the PSF resolution or the PSF should be downsampled
+                         to the sensor resolution.
+        :param depth_bins: Depths at which PSFs should be simulated.
+        '''
 
         self.sensor_distance = sensor_distance
         self.zernike_volume = zernike_volume
         self.wave_resolution = wave_resolution
         self.wave_lengths = wave_lengths
-        self.use_planar_incidence = use_planar_incidence
         self.depth_bins = depth_bins
-        self.noise_model = noise_model
+        self.sensor_resolution = sensor_resolution
         self.upsample = upsample
         self.target_distance = target_distance
         self.zernike_volume = zernike_volume
         self.height_tolerance = height_tolerance
         self.input_sample_interval = input_sample_interval
-        self.zernike_scale = zernike_scale
         self.refractive_idcs = refractive_idcs
-        self.sensor_resolution = sensor_resolution
 
-        if psf_resolution is None:
-            psf_resolution = wave_resolution
-        self.psf_resolution = psf_resolution
+        self.psf_resolution = self.sensor_resolution
 
         self.physical_size = float(self.wave_resolution[0] * self.input_sample_interval)
 
         print("Physical size is %0.2e.\nWave resolution is %d." % (self.physical_size, self.wave_resolution[0]))
 
-        self.get_psfs()
+        self._build_height_map()
+        self._get_psfs()
 
     def _build_height_map(self):
-        height_map_shape = [1, self.wave_resolution[0], self.wave_resolution[1], 1]
+        '''Generates a zernike height map for optimization (residing in self.element after function call.)
 
+        :return: None.
+        '''
         num_zernike_coeffs = self.zernike_volume.shape.as_list()[0]
 
         zernike_inits = np.zeros((num_zernike_coeffs, 1, 1))
-        zernike_inits[3] = -51.
+        zernike_inits[3] = -51.  # This sets the defocus value to approximately focus the image for a distance of 1m.
         zernike_initializer = tf.constant_initializer(zernike_inits)
 
         self.zernike_coeffs = tf.get_variable('zernike_coeffs',
@@ -1024,9 +967,6 @@ class ZernikeSystem():
                                               dtype=tf.float32,
                                               trainable=True,
                                               initializer=zernike_initializer)
-        # mask = np.ones([num_zernike_coeffs, 1, 1])
-        # mask[0] = 0.
-        # self.zernike_coeffs *= mask
 
         for i in range(num_zernike_coeffs):
             tf.summary.scalar('zernike_coeff_%d' % i, tf.squeeze(self.zernike_coeffs[i, :, :]))
@@ -1041,38 +981,38 @@ class ZernikeSystem():
                                   refractive_idcs=self.refractive_idcs,
                                   height_tolerance=self.height_tolerance)
 
-    def get_psfs(self):
+    def _get_psfs(self):
+        '''Builds the graph to generate psfs for depths in self.depth_bins, residing in self.psfs after function call.
+
+        :return: None.
+        '''
         # Sort the point source distances in increasing order
-        self._build_height_map()
 
-        if self.use_planar_incidence:
-            input_fields = [tf.ones(self.wave_resolution, dtype=tf.float32)[None, :, :, None]]
-        else:
-            distances = self.depth_bins
+        distances = self.depth_bins
 
-            if self.target_distance is not None:
-                distances += [self.target_distance]
+        if self.target_distance is not None:
+            distances += [self.target_distance]
 
-            N, M = self.wave_resolution
-            [x, y] = np.mgrid[-N // 2:N // 2,
-                     -M // 2:M // 2].astype(np.float64)
+        N, M = self.wave_resolution
+        [x, y] = np.mgrid[-N // 2:N // 2,
+                 -M // 2:M // 2].astype(np.float64)
 
-            x = x / N * self.physical_size
-            y = y / M * self.physical_size
+        x = x / N * self.physical_size
+        y = y / M * self.physical_size
 
-            squared_sum = x ** 2 + y ** 2
+        squared_sum = x ** 2 + y ** 2
 
-            wave_nos = 2. * np.pi / self.wave_lengths
-            wave_nos = wave_nos.reshape([1, 1, 1, -1])
+        wave_nos = 2. * np.pi / self.wave_lengths
+        wave_nos = wave_nos.reshape([1, 1, 1, -1])
 
-            input_fields = []
-            for distance in distances:
-                # Assume distance to source is approx. constant over wave
-                curvature = tf.sqrt(squared_sum + tf.cast(distance, tf.float64) ** 2)
-                curvature = tf.expand_dims(tf.expand_dims(curvature, 0), -1)
+        input_fields = []
+        for distance in distances:
+            # Assume distance to source is approx. constant over wave
+            curvature = tf.sqrt(squared_sum + tf.cast(distance, tf.float64) ** 2)
+            curvature = tf.expand_dims(tf.expand_dims(curvature, 0), -1)
 
-                spherical_wavefront = compl_exp_tf(wave_nos * curvature, dtype=tf.complex64)
-                input_fields.append(spherical_wavefront)
+            spherical_wavefront = compl_exp_tf(wave_nos * curvature, dtype=tf.complex64)
+            input_fields.append(spherical_wavefront)
 
         psfs = []
         with tf.variable_scope("Forward_model") as scope:
@@ -1088,7 +1028,7 @@ class ZernikeSystem():
                 if not self.upsample:
                     psf = area_downsampling_tf(psf, self.psf_resolution[0])
 
-                psf = tf.div(psf, tf.reduce_sum(psf, axis=[1, 2], keepdims=True), name='psf_depth_idx_%d' % depth_idx)
+                psf = tf.div(psf, tf.reduce_sum(psf, axis=[1, 2], keep_dims=True), name='psf_depth_idx_%d' % depth_idx)
 
                 attach_summaries('PSF_depth_idx_%d' % depth_idx, psf, image=True, log_image=True)
                 psfs.append(tf.transpose(psf, [1, 2, 0, 3]))  # (Height, width, 1, channels)
@@ -1102,11 +1042,18 @@ class ZernikeSystem():
 
     def get_sensor_img(self,
                        input_img,
-                       noise_sigma=0.001,
+                       noise_sigma,
                        depth_dependent=False,
-                       depth_map=None,
-                       otfs=None):
-        """"""
+                       depth_map=None):
+        """Calculates the sensor image.
+
+        :param input_img: Imaged scene.
+        :param noise_sigma: Sigma of gaussian sensor noise. Scalar.
+        :param depth_dependent: Whether to use a depth_map.
+        :param depth_map: A discretized depth map, where every pixel is an index into self.depth_bins.
+                          Shape (batch_size, self.sensor_resolution[0], self.sensor_resolution[1])
+        :return: Sensor image.
+        """
         # Upsample input_img to match wave resolution.
         if self.upsample:
             print("Images are upsampled to wave resolution")
@@ -1121,142 +1068,14 @@ class ZernikeSystem():
                                                    method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
             sensor_img = depth_dep_convolution(input_img, self.psfs, disc_depth_map=depth_map)
         else:
-            print("%d psfs" % len(self.psfs))
-            sensor_img = img_psf_conv(input_img, self.psfs[0])  # , otf=otfs)
+            sensor_img = img_psf_conv(input_img, self.psfs[0])
 
-        # Down sample measured image to match sensor resolution.
+        # Downsample measured image to match sensor resolution.
         if self.upsample:
             sensor_img = area_downsampling_tf(sensor_img, self.sensor_resolution[0])
-        noisy_img = self.noise_model(sensor_img, noise_sigma)
+        noisy_img = gaussian_noise(sensor_img, noise_sigma)
 
-        # print("Additive noise of %0.2e"%noise_sigma)
         attach_summaries("Sensor_img", noisy_img, image=True, log_image=False)
 
         return noisy_img
 
-
-class OpticalSystem():
-    def __init__(self,
-                 forward_model,
-                 wave_resolution,
-                 wave_lengths,
-                 sensor_resolution,
-                 noise_model=gaussian_noise,
-                 psf_resolution=None,
-                 target_distance=None,
-                 discretization_size=1e-6,
-                 use_planar_incidence=True,
-                 upsample=True,
-                 depth_bins=None,
-                 zernike_scale=1e5):
-
-        self.wave_resolution = wave_resolution
-        self.wave_lengths = wave_lengths
-        self.use_planar_incidence = use_planar_incidence
-        self.depth_bins = depth_bins
-        self.discretization_size = discretization_size
-        self.sensor_resolution = sensor_resolution
-        self.noise_model = noise_model
-        self.upsample = upsample
-        self.target_distance = target_distance
-        self.forward_model = forward_model
-
-        if psf_resolution is None:
-            psf_resolution = wave_resolution
-        self.psf_resolution = psf_resolution
-
-        self.physical_size = float(self.wave_resolution[0] * self.discretization_size)
-        self.pixel_size = discretization_size * np.array(wave_resolution) / np.array(sensor_resolution)
-
-        print("Physical size is %0.2e.\nWave resolution is %d." % (self.physical_size, self.wave_resolution[0]))
-
-        self.get_psfs()
-
-    def get_psfs(self):
-        # Sort the point source distances in increasing order
-        if self.use_planar_incidence:
-            input_fields = [tf.ones(self.wave_resolution, dtype=tf.float32)[None, :, :, None]]
-        else:
-            distances = self.depth_bins
-
-            if self.target_distance is not None:
-                distances += [self.target_distance]
-
-            N, M = self.wave_resolution
-            [x, y] = np.mgrid[-N // 2:N // 2,
-                     -M // 2:M // 2].astype(np.float64)
-
-            x = x / N * self.physical_size
-            y = y / M * self.physical_size
-
-            squared_sum = x ** 2 + y ** 2
-
-            wave_nos = 2. * np.pi / self.wave_lengths
-            wave_nos = wave_nos.reshape([1, 1, 1, -1])
-
-            input_fields = []
-            for distance in distances:
-                # Assume distance to source is approx. constant over wave
-                curvature = tf.sqrt(squared_sum + tf.cast(distance, tf.float64) ** 2)
-                curvature = tf.expand_dims(tf.expand_dims(curvature, 0), -1)
-
-                spherical_wavefront = compl_exp_tf(wave_nos * curvature, dtype=tf.complex64)
-                input_fields.append(spherical_wavefront)
-
-        psfs = []
-        with tf.variable_scope("Forward_model") as scope:
-            for depth_idx, input_field in enumerate(input_fields):
-                sensor_incident_field = self.forward_model(input_field)
-                psf = get_intensities(sensor_incident_field)
-
-                ## Blur the PSF
-                # gauss_kernel = fspecial(shape=(3,3), sigma=0.5).reshape(3,3,1,1).astype(np.float32)
-                # psf = tf.nn.depthwise_conv2d(psf, gauss_kernel, stride=(1,1,1,1), padding='SAME')
-
-                if not self.upsample:
-                    psf = area_downsampling_tf(psf, self.psf_resolution[0])
-
-                psf = tf.div(psf, tf.reduce_sum(psf, axis=[1, 2], keepdims=True), name='psf_depth_idx_%d' % depth_idx)
-
-                attach_summaries('PSF_depth_idx_%d' % depth_idx, psf, image=True, log_image=True)
-                psfs.append(tf.transpose(psf, [1, 2, 0, 3]))  # (Height, width, 1, channels)
-                scope.reuse_variables()
-
-        if self.target_distance is not None:
-            self.target_psf = psfs.pop()
-            attach_summaries('target_psf', tf.transpose(self.target_psf, [2, 0, 1, 3]), image=True)
-
-        self.psfs = psfs
-
-    def get_sensor_img(self,
-                       input_img,
-                       noise_sigma=0.001,
-                       depth_dependent=False,
-                       depth_map=None,
-                       otfs=None):
-        """"""
-        # Upsample input_img to match wave resolution.
-        if self.upsample:
-            print("Images are upsampled to wave resolution")
-            input_img = tf.image.resize_images(input_img, self.wave_resolution,
-                                               method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-        else:
-            print("Images are not upsampled to wave resolution")
-
-        if depth_dependent:
-            if self.upsample:
-                depth_map = tf.image.resize_images(depth_map, self.wave_resolution,
-                                                   method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-            sensor_img = depth_dep_convolution(input_img, self.psfs, disc_depth_map=depth_map)
-        else:
-            sensor_img = img_psf_conv(input_img, self.psfs[0], otf=otfs)
-
-        # Down sample measured image to match sensor resolution.
-        if self.upsample:
-            sensor_img = area_downsampling_tf(sensor_img, self.sensor_resolution[0])
-        noisy_img = self.noise_model(sensor_img, noise_sigma)
-
-        # print("Additive noise of %0.2e"%noise_sigma)
-        attach_summaries("Sensor_img", noisy_img, image=True, log_image=False)
-
-        return noisy_img
