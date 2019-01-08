@@ -1,137 +1,135 @@
 name: deepoptics
 channels:
-- menpo
-- defaults
+  - menpo
+  - defaults
 dependencies:
-- bleach=2.0.0=py36h688b259_0
-- bokeh=0.12.15=py36_0
-- ca-certificates=2017.08.26=h1d4fec5_0
-- certifi=2017.11.5=py36hf29ccca_0
-- click=6.7=py36h5253387_0
-- cloudpickle=0.5.2=py36_1
-- cycler=0.10.0=py36h93f1223_0
-- cytoolz=0.9.0.1=py36h14c3975_0
-- dask=0.17.2=py36_0
-- dask-core=0.17.2=py36_0
-- dbus=1.10.22=h3b5a359_0
-- decorator=4.1.2=py36hd076ac8_0
-- distributed=1.21.6=py36_0
-- entrypoints=0.2.3=py36h1aec115_2
-- expat=2.2.5=he0dffb1_0
-- fontconfig=2.12.4=h88586e7_1
-- freetype=2.8=hab7d2ae_1
-- glib=2.53.6=h5d9569c_2
-- gmp=6.1.2=h6c8ec71_1
-- gst-plugins-base=1.12.2=he3457e5_0
-- gstreamer=1.12.2=h4f93127_0
-- heapdict=1.0.0=py36_2
-- html5lib=0.999999999=py36h2cfc398_0
-- icu=58.2=h9c2bf20_1
-- imageio=2.3.0=py36_0
-- intel-openmp=2018.0.0=hc7b2577_8
-- ipykernel=4.6.1=py36hbf841aa_0
-- ipython=6.2.1=py36h88c514a_1
-- ipython_genutils=0.2.0=py36hb52b0d5_0
-- ipywidgets=7.0.5=py36h31d6531_0
-- jedi=0.10.2=py36h552def0_0
-- jinja2=2.9.6=py36h489bce4_1
-- jpeg=9b=h024ee3a_2
-- jsonschema=2.6.0=py36h006f8b5_0
-- jupyter=1.0.0=py36h9896ce5_0
-- jupyter_client=5.1.0=py36h614e9ea_0
-- jupyter_console=5.2.0=py36he59e554_1
-- jupyter_core=4.4.0=py36h7c827e3_0
-- libedit=3.1=heed3624_0
-- libffi=3.2.1=hd88cf55_4
-- libgcc-ng=7.2.0=h7cc24e2_2
-- libgfortran-ng=7.2.0=h9f7466a_2
-- libpng=1.6.32=hbd3595f_4
-- libsodium=1.0.15=hf101ebd_0
-- libstdcxx-ng=7.2.0=h7a57d05_2
-- libtiff=4.0.9=h28f6b97_0
-- libxcb=1.12=hcd93eb1_4
-- libxml2=2.9.4=h2e8b1d7_6
-- locket=0.2.0=py36h787c0ad_1
-- markupsafe=1.0=py36hd9260cd_1
-- matplotlib=2.1.0=py36hba5de38_0
-- mistune=0.8.1=py36h3d5977c_0
-- mkl=2018.0.1=h19d6760_4
-- msgpack-python=0.5.6=py36h6bb024c_0
-- nbconvert=5.3.1=py36hb41ffb7_0
-- nbformat=4.4.0=py36h31c9010_0
-- ncurses=6.0=h9df7e31_2
-- networkx=2.1=py36_0
-- notebook=5.2.1=py36h690a4eb_0
-- numpy=1.13.3=py36ha12f23b_0
-- olefile=0.45.1=py36_0
-- openssl=1.0.2m=h26d622b_1
-- packaging=17.1=py36_0
-- pandas=0.22.0=py36hf484d3e_0
-- pandoc=1.19.2.1=hea2e7c5_1
-- pandocfilters=1.4.2=py36ha6701b7_1
-- partd=0.3.8=py36h36fd896_0
-- pcre=8.41=hc27e229_1
-- pexpect=4.3.0=py36h673ed17_0
-- pickleshare=0.7.4=py36h63277f8_0
-- pillow=5.0.0=py36h3deb7b8_0
-- pip=9.0.1=py36h6c6f9ce_4
-- prompt_toolkit=1.0.15=py36h17d85b1_0
-- psutil=5.4.3=py36h14c3975_0
-- ptyprocess=0.5.2=py36h69acd42_0
-- pygments=2.2.0=py36h0d3125c_0
-- pyparsing=2.2.0=py36hee85983_1
-- pyqt=5.6.0=py36h0386399_5
-- python=3.6.3=h6c0c0dc_5
-- python-dateutil=2.6.1=py36h88d3b88_1
-- pytz=2017.3=py36h63b9c63_0
-- pywavelets=0.5.2=py36he602eb0_0
-- pyyaml=3.12=py36hafb9ca4_1
-- pyzmq=16.0.3=py36he2533c7_0
-- qt=5.6.2=h974d657_12
-- qtconsole=4.3.1=py36h8f73b5b_0
-- readline=7.0=ha6073c6_4
-- scikit-image=0.13.1=py36h14c3975_1
-- scipy=1.0.0=py36hbf646e7_0
-- setuptools=36.5.0=py36he42e2e1_0
-- simplegeneric=0.8.1=py36h2cb9092_0
-- sip=4.18.1=py36h51ed4ed_2
-- six=1.11.0=py36h372c433_1
-- sortedcontainers=1.5.9=py36_0
-- sqlite=3.20.1=hb898158_2
-- tblib=1.3.2=py36h34cf8b6_0
-- terminado=0.6=py36ha25a19f_0
-- testpath=0.3.1=py36h8cadb63_0
-- tk=8.6.7=hc745277_3
-- toolz=0.9.0=py36_0
-- tornado=4.5.2=py36h1283b2a_0
-- traitlets=4.3.2=py36h674d592_0
-- wcwidth=0.1.7=py36hdf4376a_0
-- webencodings=0.5.1=py36h800622e_1
-- wheel=0.30.0=py36hfd4bba0_1
-- widgetsnbextension=3.0.8=py36h25a1d49_0
-- xz=5.2.3=h55aa19d_2
-- yaml=0.1.7=had09818_2
-- zeromq=4.2.2=hbedb6e5_2
-- zict=0.1.3=py36h3a3bf81_0
-- zlib=1.2.11=ha838bed_2
-- opencv3=3.1.0=py36_0
-- pip:
-  - absl-py==0.1.13
-  - astor==0.6.2
-  - enum34==1.1.6
-  - gast==0.2.0
-  - grpcio==1.10.1
-  - ipython-genutils==0.2.0
-  - jupyter-client==5.1.0
-  - jupyter-console==5.2.0
-  - jupyter-core==4.4.0
-  - markdown==2.6.11
-  - prompt-toolkit==1.0.15
-  - protobuf==3.5.2.post1
-  - tensorboard==1.7.0
-  - tensorflow-gpu==1.4.0
-  - tensorflow-tensorboard==0.4.0
-  - termcolor==1.1.0
-  - werkzeug==0.14.1
-prefix: /home/sci/anaconda2/envs/deepoptics
+  - blas=1.0=mkl
+  - bleach=2.0.0=py36h688b259_0
+  - bokeh=0.12.15=py36_0
+  - ca-certificates=2017.08.26=h1d4fec5_0
+  - certifi=2017.11.5=py36hf29ccca_0
+  - click=6.7=py36h5253387_0
+  - cloudpickle=0.5.2=py36_1
+  - cycler=0.10.0=py36h93f1223_0
+  - cytoolz=0.9.0.1=py36h14c3975_0
+  - dask=0.17.2=py36_0
+  - dask-core=0.17.2=py36_0
+  - dbus=1.10.22=h3b5a359_0
+  - decorator=4.1.2=py36hd076ac8_0
+  - distributed=1.21.6=py36_0
+  - entrypoints=0.2.3=py36h1aec115_2
+  - expat=2.2.5=he0dffb1_0
+  - fontconfig=2.12.4=h88586e7_1
+  - freetype=2.8=hab7d2ae_1
+  - glib=2.53.6=h5d9569c_2
+  - gmp=6.1.2=h6c8ec71_1
+  - gst-plugins-base=1.12.2=he3457e5_0
+  - gstreamer=1.12.2=h4f93127_0
+  - heapdict=1.0.0=py36_2
+  - html5lib=0.999999999=py36h2cfc398_0
+  - icu=58.2=h9c2bf20_1
+  - imageio=2.3.0=py36_0
+  - intel-openmp=2018.0.0=hc7b2577_8
+  - ipykernel=4.6.1=py36hbf841aa_0
+  - ipython=6.2.1=py36h88c514a_1
+  - ipython_genutils=0.2.0=py36hb52b0d5_0
+  - ipywidgets=7.0.5=py36h31d6531_0
+  - jedi=0.10.2=py36h552def0_0
+  - jinja2=2.9.6=py36h489bce4_1
+  - jpeg=9b=h024ee3a_2
+  - jsonschema=2.6.0=py36h006f8b5_0
+  - jupyter=1.0.0=py36h9896ce5_0
+  - jupyter_client=5.1.0=py36h614e9ea_0
+  - jupyter_console=5.2.0=py36he59e554_1
+  - jupyter_core=4.4.0=py36h7c827e3_0
+  - libedit=3.1=heed3624_0
+  - libffi=3.2.1=hd88cf55_4
+  - libgcc-ng=7.2.0=h7cc24e2_2
+  - libgfortran-ng=7.2.0=h9f7466a_2
+  - libpng=1.6.32=hbd3595f_4
+  - libsodium=1.0.15=hf101ebd_0
+  - libstdcxx-ng=7.2.0=h7a57d05_2
+  - libtiff=4.0.9=h28f6b97_0
+  - libxcb=1.12=hcd93eb1_4
+  - libxml2=2.9.4=h2e8b1d7_6
+  - locket=0.2.0=py36h787c0ad_1
+  - markupsafe=1.0=py36hd9260cd_1
+  - matplotlib=2.1.0=py36hba5de38_0
+  - mistune=0.8.1=py36h3d5977c_0
+  - mkl=2018.0.1=h19d6760_4
+  - msgpack-python=0.5.6=py36h6bb024c_0
+  - nbconvert=5.3.1=py36hb41ffb7_0
+  - nbformat=4.4.0=py36h31c9010_0
+  - ncurses=6.0=h9df7e31_2
+  - networkx=2.1=py36_0
+  - notebook=5.2.1=py36h690a4eb_0
+  - numpy=1.13.3=py36ha12f23b_0
+  - olefile=0.45.1=py36_0
+  - openssl=1.0.2m=h26d622b_1
+  - packaging=17.1=py36_0
+  - pandas=0.22.0=py36hf484d3e_0
+  - pandoc=1.19.2.1=hea2e7c5_1
+  - pandocfilters=1.4.2=py36ha6701b7_1
+  - partd=0.3.8=py36h36fd896_0
+  - pcre=8.41=hc27e229_1
+  - pexpect=4.3.0=py36h673ed17_0
+  - pickleshare=0.7.4=py36h63277f8_0
+  - pillow=5.0.0=py36h3deb7b8_0
+  - pip=9.0.1=py36h6c6f9ce_4
+  - prompt_toolkit=1.0.15=py36h17d85b1_0
+  - psutil=5.4.3=py36h14c3975_0
+  - ptyprocess=0.5.2=py36h69acd42_0
+  - pygments=2.2.0=py36h0d3125c_0
+  - pyparsing=2.2.0=py36hee85983_1
+  - pyqt=5.6.0=py36h0386399_5
+  - python=3.6.3=h6c0c0dc_5
+  - python-dateutil=2.6.1=py36h88d3b88_1
+  - pytz=2017.3=py36h63b9c63_0
+  - pywavelets=0.5.2=py36he602eb0_0
+  - pyyaml=3.12=py36hafb9ca4_1
+  - pyzmq=16.0.3=py36he2533c7_0
+  - qt=5.6.2=h974d657_12
+  - qtconsole=4.3.1=py36h8f73b5b_0
+  - readline=7.0=ha6073c6_4
+  - scikit-image=0.13.1=py36h14c3975_1
+  - scipy=1.0.0=py36hbf646e7_0
+  - setuptools=36.5.0=py36he42e2e1_0
+  - simplegeneric=0.8.1=py36h2cb9092_0
+  - sip=4.18.1=py36h51ed4ed_2
+  - six=1.11.0=py36h372c433_1
+  - sortedcontainers=1.5.9=py36_0
+  - sqlite=3.20.1=hb898158_2
+  - tblib=1.3.2=py36h34cf8b6_0
+  - terminado=0.6=py36ha25a19f_0
+  - testpath=0.3.1=py36h8cadb63_0
+  - tk=8.6.7=hc745277_3
+  - toolz=0.9.0=py36_0
+  - tornado=4.5.2=py36h1283b2a_0
+  - traitlets=4.3.2=py36h674d592_0
+  - wcwidth=0.1.7=py36hdf4376a_0
+  - webencodings=0.5.1=py36h800622e_1
+  - wheel=0.30.0=py36hfd4bba0_1
+  - widgetsnbextension=3.0.8=py36h25a1d49_0
+  - xz=5.2.3=h55aa19d_2
+  - yaml=0.1.7=had09818_2
+  - zeromq=4.2.2=hbedb6e5_2
+  - zict=0.1.3=py36h3a3bf81_0
+  - zlib=1.2.11=ha838bed_2
+  - opencv3=3.1.0=py36_0
+  - pip:
+    - absl-py==0.1.13
+    - astor==0.6.2
+    - astropy==3.1.1
+    - enum34==1.1.6
+    - gast==0.2.0
+    - grpcio==1.10.1
+    - markdown==2.6.11
+    - poppy==0.8.0
+    - protobuf==3.5.2.post1
+    - tensorboard==1.7.0
+    - tensorflow-gpu==1.4.0
+    - tensorflow-tensorboard==0.4.0
+    - termcolor==1.1.0
+    - werkzeug==0.14.1
+prefix: /home/sitzmann/miniconda3/envs/deepoptics
 
